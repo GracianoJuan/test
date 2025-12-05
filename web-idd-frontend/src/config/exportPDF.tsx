@@ -1,0 +1,1 @@
+const exportPDF =  (data : object) => {}
