@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # 1. Next.js Frontend Service
+  frontend:
+    build: ./frontend             
+    ports:
+      - "3000:3000"               
+    depends_on:
+      - backend                   
+    environment:
+      # Frontend connects to the backend service's name (backend)
+      NEXT_PUBLIC_BACKEND_URL: http://backend:3001
+    restart: unless-stopped
+
+  # 2. Elysia.js Backend Service (Uses Bun)
+  backend:
+    build: ./backend              # Uses the new Bun Dockerfile
+    ports:
+      - "3001:3001"               
+    depends_on:
+      postgres:
+        condition: service_healthy # Wait for PostgreSQL to be ready
+      mongo:
+        condition: service_started
+    environment:
+      # IMPORTANT: Use the Docker service names as the hostnames
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password_pg
+      POSTGRES_DB: mydatabase
+
+      MONGO_HOST: mongo
+      MONGO_PORT: 27017
+      MONGO_USER: user
+      MONGO_PASSWORD: password_mongo
+      # ... other environment variables your Elysia app needs
+    restart: unless-stopped
+
+  # 3. PostgreSQL Database Service
+  postgres:
+    image: postgres:16-alpine     
+    environment:
+      POSTGRES_DB: mydatabase
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password_pg
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck: # Healthcheck to make depends_on reliable
+      test: ["CMD-SHELL", "pg_isready -U user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  # 4. MongoDB Database Service
+  mongo:
+    image: mongo:latest           
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: user
+      MONGO_INITDB_ROOT_PASSWORD: password_mongo
+    volumes:
+      - mongo-data:/data/db
+    restart: always
+
+# Define named volumes for data persistence
+volumes:
+  postgres-data:
+  mongo-data:
